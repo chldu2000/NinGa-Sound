@@ -1,1 +1,243 @@
 /* You can add global styles to this file, and also import other style files */
+
+/* 添加全局变量 - 吉他日落色系 */
+:root {
+  --guitar-sunset-dark: #e25822;    /* 暗橙色 */
+  --guitar-sunset-light: #ff7e30;   /* 亮橙色 */
+  --guitar-wood: #a65c32;           /* 吉他木色 */
+  --guitar-neck: #7f4f24;           /* 吉他指板色 */
+  --text-on-sunset: #ffffff;        /* 日落色上的文字 */
+  --text-dark: #333333;             /* 深色文字 */
+  --background-light: #faf8f4;      /* 浅米色背景 */
+  --card-bg: #ffffff;               /* 卡片背景色 */
+  --border-color: #ddd;             /* 边框颜色 */
+  
+  /* 主题切换变量 */
+  --bg-color: var(--background-light);
+  --text-color: var(--text-dark);
+  --card-background: var(--card-bg);
+  --input-bg: #ddd;
+}
+
+/* 暗色主题变量 */
+.dark-theme {
+  --bg-color: #1e1e1e;
+  --text-color: #f0f0f0;
+  --card-background: #2d2d2d;
+  --input-bg: #3d3d3d;
+  --border-color: #444;
+  
+  /* 覆盖特定元素样式 */
+  .card {
+    background-color: var(--card-background);
+    border-color: var(--border-color);
+  }
+  
+  h2, h3, h4, p {
+    color: var(--text-color);
+  }
+  
+  .slider {
+    background: var(--input-bg);
+  }
+  
+  .pattern-option, .string {
+    border-color: var(--border-color);
+    background-color: var(--card-background);
+    color: var(--text-color);
+    
+    &:hover {
+      background-color: #444;
+    }
+  }
+}
+
+/* 全局样式调整 */
+body {
+  font-family: 'Roboto', '微软雅黑', sans-serif;
+  color: var(--text-color);
+  background-color: var(--bg-color);
+  margin: 0;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+/* 应用容器 */
+.app-container {
+  display: flex;
+  height: 100vh;
+}
+
+/* 侧边栏样式 */
+.sidebar {
+  width: 250px;
+  background: linear-gradient(to bottom, var(--guitar-wood), var(--guitar-neck));
+  padding: 20px;
+  color: var(--text-on-sunset);
+  
+  .logo {
+    margin-bottom: 30px;
+    
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      color: var(--text-on-sunset);
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+    }
+  }
+  
+  .nav-links {
+    list-style: none;
+    padding: 0;
+    
+    li {
+      margin-bottom: 10px;
+    }
+    
+    a {
+      display: block;
+      padding: 10px;
+      color: var(--text-on-sunset);
+      text-decoration: none;
+      border-radius: 4px;
+      transition: background-color 0.3s, color 0.3s;
+      
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+      }
+      
+      &.active {
+        background-color: var(--guitar-sunset-light);
+        color: var(--text-on-sunset);
+        font-weight: 500;
+      }
+    }
+  }
+}
+
+/* 主内容区域 */
+.main-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+/* 页面内容样式 */
+.page-container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* 卡片样式 */
+.card {
+  background-color: white;
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border-top: 3px solid var(--guitar-sunset-dark);
+}
+
+/* 按钮样式 */
+.btn {
+  background-color: var(--guitar-sunset-dark);
+  color: var(--text-on-sunset);
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  
+  &:hover {
+    background-color: var(--guitar-sunset-light);
+  }
+}
+
+/* 标题样式 */
+h2 {
+  color: var(--guitar-wood);
+  border-bottom: 2px solid #eee;
+  padding-bottom: 10px;
+}
+
+h3 {
+  color: var(--guitar-neck);
+}
+
+/* 统计数据样式 */
+.stats {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 15px;
+}
+
+.stat-item {
+  text-align: center;
+  flex: 1;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--guitar-sunset-dark);
+}
+
+.stat-label {
+  font-size: 14px;
+  color: var(--text-dark);
+  margin-top: 5px;
+}
+
+/* 响应式设计 */
+@media screen and (max-width: 768px) {
+  .app-container {
+    flex-direction: column;
+  }
+  
+  .sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  
+  .nav-links {
+    display: flex;
+    gap: 10px;
+    
+    li {
+      margin-bottom: 0;
+    }
+  }
+}
+
+/* 主题和语言切换按钮 */
+// .theme-language-controls {
+//   display: flex;
+//   justify-content: center;
+//   gap: 15px;
+//   margin-top: 30px;
+// }
+
+.round-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background-color: var(--guitar-sunset-dark);
+  color: var(--text-on-sunset);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s, background-color 0.3s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  
+  &:hover {
+    background-color: var(--guitar-sunset-light);
+    transform: scale(1.1);
+  }
+  
+  .icon {
+    font-size: 20px;
+    line-height: 1;
+  }
+}

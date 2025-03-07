@@ -1,59 +1,75 @@
-# NingaSound
+# 🎸 您吉响/NinGaSound
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.1.
+哎，您吉响！（笑点解析：此处使用了谐音梗，令人忍俊不禁。）
 
-## Development server
+在 [Trae](https://www.trae.ai/) 的帮助下，本项目得以诞生。
 
-To start a local development server, run:
+**以下内容均为 Trae 生成**
 
+---
+
+> 警告：使用本应用可能会让你成为下一个 Eric Clapton！（但我们不做任何保证 😉）
+
+## 🎵 这是什么？
+
+这是一个专为吉他手打造的神奇工具箱！不管你是菜鸟还是大神，这里都有适合你的功能。
+
+### ⚡ 特色功能
+
+#### 🎯 超级节拍器
+
+- 比你老妈喊你练琴还要准时
+- 从慢如蜗牛（30 BPM）到快如闪电（300 BPM）
+- 支持多种节奏型，让你的音乐不再"四四方方"
+
+#### 🌏 中英双语
+
+- "Hello" 或者 "你好"，随你喜欢
+- 无缝切换，就像变魔术一样
+
+### 🚀 开始使用
+
+1. 克隆项目（对，就是把它偷回家）
 ```bash
-ng serve
+git clone https://github.com/chldu2000/NinGa-Sound.git
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
+2. 安装依赖（像在乐器店买配件一样简单）
 ```bash
-ng generate component component-name
-```
+npm install
+ ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
+3. 启动项目（让音乐响起来！）
 ```bash
-ng generate --help
-```
+npm start
+ ```
 
-## Building
+### 🎨 技术栈
 
-To build the project run:
+- Angular 19.2.0（是的，我们用的是最新的！）
+- TypeScript（因为 JavaScript 太随性了）
+- 满满的音乐情怀（这个最重要）
+  
+### 🤝 贡献指南
 
-```bash
-ng build
-```
+发现了 bug？有新的想法？
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+1. 先深呼吸
+2. 提交 Issue 或 PR
+3. 等待奇迹发生
 
-## Running unit tests
+### 📝 许可证
 
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
+MIT License - 随便用，但别说是你写的！
 
-```bash
-ng test
-```
+### 🎸 最后的话
 
-## Running end-to-end tests
+记住，练琴的时候要：
 
-For end-to-end (e2e) testing, run:
+- 放松（但别太放松睡着了）
+- 专注（但别太专注忘记吃饭）
+- 享受（这才是最重要的！）
+"人生就像吉他弦，时而紧张，时而放松，但总要保持适度。"
+—— 某个喝多了的吉他手
 
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Made with ❤️ and ☕ by Guitar Enthusiasts

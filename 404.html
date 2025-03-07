@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>重定向中...</title>
+  <script>
+    const segments = window.location.pathname.slice(1).split('/');
+    const repo = segments[0];
+    const path = segments.slice(1).join('/');
+    if (path) {
+      window.location.href = `/${repo}/#/${path}`;
+    } else {
+      window.location.href = `/${repo}/`;
+    }
+  </script>
+</head>
+<body>
+  正在重定向到主页...
+</body>
+</html>

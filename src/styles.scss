@@ -53,18 +53,42 @@
 }
 
 /* 全局样式调整 */
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
 body {
   font-family: 'Roboto', '微软雅黑', sans-serif;
   color: var(--text-color);
   background-color: var(--bg-color);
-  margin: 0;
   transition: background-color 0.3s, color 0.3s;
 }
 
 /* 应用容器 */
 .app-container {
   display: flex;
-  height: 100vh;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 主内容区域 */
+.main-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  height: 100%;
+}
+
+/* 页面内容样式 */
+.page-container {
+  max-width: 800px;
+  margin: 0 auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 侧边栏样式 */

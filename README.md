@@ -2,6 +2,8 @@
 
 哎，您吉响！（笑点解析：此处使用了谐音梗，令人忍俊不禁。）
 
+Demo: [您吉响/NinGaSound](https://chldu2000.github.io/NinGa-Sound/)
+
 在 [Trae](https://www.trae.ai/) 的帮助下，本项目得以诞生。
 
 **以下内容均为 Trae 生成**

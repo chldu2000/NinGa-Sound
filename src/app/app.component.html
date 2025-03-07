@@ -1,0 +1,28 @@
+<div class="app-container" [ngClass]="{'dark-theme': isDarkTheme}">
+  <nav class="sidebar">
+    <div class="logo">
+      <h1>🎸{{ 'app_title' | translate }}</h1>
+    </div>
+    <ul class="nav-links">
+      <li>
+        <a routerLink="/metronome" routerLinkActive="active">{{ 'metronome' | translate }}</a>
+      </li>
+      <li>
+        <a routerLink="/tuner" routerLinkActive="active">{{ 'tuner' | translate }}</a>
+      </li>
+    </ul>
+    
+    <div class="theme-language-controls">
+      <button class="round-button theme-toggle" (click)="toggleTheme()">
+        <i class="icon">{{ isDarkTheme ? '☀️' : '🌙' }}</i>
+      </button>
+      <button class="round-button lang-toggle" (click)="toggleLanguage()">
+        <i class="icon">{{ isEnglish ? '中' : 'EN' }}</i>
+      </button>
+    </div>
+  </nav>
+  
+  <main class="main-content">
+    <router-outlet></router-outlet>
+  </main>
+</div>

@@ -1,6 +1,6 @@
 # 🎸 您吉响/NinGaSound
 
-哎，您吉响！（笑点解析：此处使用了谐音梗，令人忍俊不禁。）
+哎呦喂，您吉响！（笑点解析：此处使用了谐音梗，令人忍俊不禁。）
 
 Demo: [您吉响/NinGaSound](https://chldu2000.github.io/NinGa-Sound/)
 

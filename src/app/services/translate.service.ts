@@ -11,7 +11,7 @@ export class TranslateService {
     'zh': {
       'app_title': '您吉响',
       'metronome': '节拍器',
-      'tuner': '调音器（未就绪）',
+      'tuner': '调音器(Beta)',
       'start': '开始',
       'stop': '停止',
       'tempo': '速度',
@@ -19,9 +19,9 @@ export class TranslateService {
       'start_tuning': '开始调音'
     },
     'en': {
-      'app_title': 'NinGa-Sound',
+      'app_title': 'NinGaSound',
       'metronome': 'Metronome',
-      'tuner': 'Tuner (Not Ready Yet)',
+      'tuner': 'Tuner (Beta)',
       'start': 'Start',
       'stop': 'Stop',
       'tempo': 'Tempo',

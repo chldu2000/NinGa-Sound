@@ -7,10 +7,10 @@
   height: 100%;
 }
 
-.content {
-  flex: 1;
-  overflow-y: auto;
-}
+/* 注意：原 .content 规则已删除 —— app-root 模板里没有任何 class="content" 的元素，
+ * 该规则（含 overflow-y:auto）从未命中；页面组件模板里的 .content 属于
+ * metronome / tuner 自己的封装作用域，本文件的全局/组件样式都无法命中。 */
+
 .sidebar {
   position: relative;
   display: flex;

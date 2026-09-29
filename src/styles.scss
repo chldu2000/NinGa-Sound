@@ -1,7 +1,16 @@
-/* You can add global styles to this file, and also import other style files */
+/* 全局样式：吉他日落色系主题
+ *
+ * 变量分两层：
+ *   1. 调色板层（--guitar-* / --text-* / --background-* ）只在 :root 定义一次；
+ *   2. 语义层（--bg-color / --card-background / --border-color 等）在 :root 给亮色取值，
+ *      暗色只在 .dark-theme 里重定义变量本身，组件样式通过 CSS 变量继承自然切换，
+ *      不再依赖 ".dark-theme .card" 这类嵌套选择器。
+ * 主题类由 AppComponent 加在 <body> 上（app.component.ts 的 applyTheme），
+ * 模板同时把该类绑在 .app-container 上，两种挂载方式都能命中下面的变量块。
+ */
 
-/* 添加全局变量 - 吉他日落色系 */
 :root {
+  /* 调色板：吉他日落色系 */
   --guitar-sunset-dark: #e25822;    /* 暗橙色 */
   --guitar-sunset-light: #ff7e30;   /* 亮橙色 */
   --guitar-wood: #a65c32;           /* 吉他木色 */
@@ -10,46 +19,39 @@
   --text-dark: #333333;             /* 深色文字 */
   --background-light: #faf8f4;      /* 浅米色背景 */
   --card-bg: #ffffff;               /* 卡片背景色 */
-  --border-color: #ddd;             /* 边框颜色 */
-  
-  /* 主题切换变量 */
+
+  /* 语义变量：亮色取值 */
   --bg-color: var(--background-light);
   --text-color: var(--text-dark);
   --card-background: var(--card-bg);
-  --input-bg: #ddd;
+  --border-color: #ddd;             /* 边框颜色 */
+  --input-bg: #ddd;                 /* 滑块轨道等输入控件底色 */
+  --divider-color: #eee;            /* 标题分隔线 */
+  --control-bg: #ffffff;            /* 小型控件（BPM 加减）底色 */
+  --surface-muted: #f5f5f5;         /* 调音器刻度面板底色 */
+  --surface-hover: #f0f0f0;         /* 可选项悬停底色 */
+  --text-muted: #666;               /* 页脚等次要文字 */
+  --text-muted-strong: #444;        /* 刻度标签等次要文字 */
+  --heading-color: var(--guitar-wood);
+  --subheading-color: var(--guitar-neck);
 }
 
-/* 暗色主题变量 */
+/* 暗色主题：只重定义语义变量，让全局与组件样式自然继承 */
 .dark-theme {
   --bg-color: #1e1e1e;
   --text-color: #f0f0f0;
   --card-background: #2d2d2d;
-  --input-bg: #3d3d3d;
   --border-color: #444;
-  
-  /* 覆盖特定元素样式 */
-  .card {
-    background-color: var(--card-background);
-    border-color: var(--border-color);
-  }
-  
-  h2, h3, h4, p {
-    color: var(--text-color);
-  }
-  
-  .slider {
-    background: var(--input-bg);
-  }
-  
-  .pattern-option, .string {
-    border-color: var(--border-color);
-    background-color: var(--card-background);
-    color: var(--text-color);
-    
-    &:hover {
-      background-color: #444;
-    }
-  }
+  --input-bg: #3d3d3d;
+  --divider-color: #444;
+  --control-bg: #2d2d2d;
+  --surface-muted: #333333;
+  --surface-hover: #3d3d3d;
+  --text-muted: #b0b0b0;
+  --text-muted-strong: #d0d0d0;
+  /* 保持原有暗色渲染：标题用正文色，而不是木色 / 指板色 */
+  --heading-color: #f0f0f0;
+  --subheading-color: #f0f0f0;
 }
 
 /* 全局样式调整 */
@@ -74,18 +76,29 @@ body {
   overflow: hidden;
 }
 
-/* 主内容区域 */
+/* 主内容区域（唯一定义）
+ * height:100% 必须与 box-sizing:border-box 搭配：
+ * .app-container 高度 = 100% 视口且 overflow:hidden，若此处按 content-box 计算，
+ * 元素总高会变成 100% + 上下 padding(40px)，底部 40px 会被父容器裁掉且无法滚动
+ * （scrollHeight == clientHeight），页脚会被永久遮挡。
+ * border-box 下内容盒 = 100% - 40px，正好铺满且只有一层滚动条（body 已 overflow:hidden）。
+ */
 .main-content {
   flex: 1;
   padding: 20px;
-  overflow-y: auto;
+  box-sizing: border-box;
   height: 100%;
+  overflow-y: auto;
 }
 
-/* 页面内容样式 */
+/* 页面内容样式（唯一定义）
+ * 高度取 .main-content 的内容盒（100% - 40px），配合 display:flex + column，
+ * 页脚用 margin-top:auto 贴底；配合上面的 overflow-y:auto 只出现一层滚动条。
+ */
 .page-container {
   max-width: 800px;
   margin: 0 auto;
+  box-sizing: border-box;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -97,10 +110,10 @@ body {
   background: linear-gradient(to bottom, var(--guitar-wood), var(--guitar-neck));
   padding: 20px;
   color: var(--text-on-sunset);
-  
+
   .logo {
     margin-bottom: 30px;
-    
+
     h1 {
       margin: 0;
       font-size: 24px;
@@ -108,15 +121,15 @@ body {
       text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
     }
   }
-  
+
   .nav-links {
     list-style: none;
     padding: 0;
-    
+
     li {
       margin-bottom: 10px;
     }
-    
+
     a {
       display: block;
       padding: 10px;
@@ -124,11 +137,11 @@ body {
       text-decoration: none;
       border-radius: 4px;
       transition: background-color 0.3s, color 0.3s;
-      
+
       &:hover {
         background-color: rgba(255, 255, 255, 0.1);
       }
-      
+
       &.active {
         background-color: var(--guitar-sunset-light);
         color: var(--text-on-sunset);
@@ -138,22 +151,9 @@ body {
   }
 }
 
-/* 主内容区域 */
-.main-content {
-  flex: 1;
-  padding: 20px;
-  overflow-y: auto;
-}
-
-/* 页面内容样式 */
-.page-container {
-  max-width: 800px;
-  margin: 0 auto;
-}
-
 /* 卡片样式 */
 .card {
-  background-color: white;
+  background-color: var(--card-background);
   border-radius: 8px;
   padding: 20px;
   margin-top: 20px;
@@ -170,7 +170,7 @@ body {
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.3s;
-  
+
   &:hover {
     background-color: var(--guitar-sunset-light);
   }
@@ -178,16 +178,17 @@ body {
 
 /* 标题样式 */
 h2 {
-  color: var(--guitar-wood);
-  border-bottom: 2px solid #eee;
+  color: var(--heading-color);
+  border-bottom: 2px solid var(--divider-color);
   padding-bottom: 10px;
 }
 
 h3 {
-  color: var(--guitar-neck);
+  color: var(--subheading-color);
 }
 
-/* 统计数据样式 */
+/* 统计数据样式（当前模板未使用，保留供后续页面复用；
+ * 颜色改用语义变量，暗色下同样可读） */
 .stats {
   display: flex;
   justify-content: space-between;
@@ -207,7 +208,7 @@ h3 {
 
 .stat-label {
   font-size: 14px;
-  color: var(--text-dark);
+  color: var(--text-color);
   margin-top: 5px;
 }
 
@@ -216,30 +217,22 @@ h3 {
   .app-container {
     flex-direction: column;
   }
-  
+
   .sidebar {
     width: 100%;
     border-right: none;
     border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   }
-  
+
   .nav-links {
     display: flex;
     gap: 10px;
-    
+
     li {
       margin-bottom: 0;
     }
   }
 }
-
-/* 主题和语言切换按钮 */
-// .theme-language-controls {
-//   display: flex;
-//   justify-content: center;
-//   gap: 15px;
-//   margin-top: 30px;
-// }
 
 .round-button {
   width: 40px;
@@ -254,14 +247,68 @@ h3 {
   cursor: pointer;
   transition: transform 0.2s, background-color 0.3s;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  
+
   &:hover {
     background-color: var(--guitar-sunset-light);
     transform: scale(1.1);
   }
-  
+
   .icon {
     font-size: 20px;
     line-height: 1;
+  }
+}
+
+/* ------------------------------------------------------------------
+ * 主题桥接段（临时，待组件内联样式变量化后整体删除）
+ *
+ * metronome / tuner / footer 组件在自己的样式里把亮色写成了字面量，例如
+ *   .slider { background: #ddd } / .bpm-btn { background-color: white }
+ *   .pitch-labels span { color: #444 } / .footer { color: #666 }
+ * Angular 组件样式在运行时注入 <head>，位于全局样式之后；与全局规则特异度
+ * 相同时由组件样式胜出，因此旧的 ".dark-theme .slider / .pattern-option" 写法
+ * 在部分元素上其实没有生效（暗色下滑块轨道仍是 #ddd、悬停仍是 #f0f0f0）。
+ * 这里统一用 body .app-container 前缀提升一级特异度，取值全部来自上面的语义
+ * 变量；亮色取值与组件里的字面量完全一致，所以亮色外观不变。
+ *
+ * 特异度对照（a=id, b=类/属性/伪类, c=元素）：
+ *   组件 .slider[_ngcontent]                     (0,2,0) < 全局 .slider        (0,2,1)
+ *   组件 .pattern-option:hover[_ngcontent]        (0,3,0) < 全局 :hover:not(.active) (0,4,1)
+ *   组件 .pattern-option.active[_ngcontent]       (0,3,0) > 全局 .pattern-option (0,2,1)
+ *     => 选中态（橙底白字）仍由组件裁决，不受本段影响
+ * ------------------------------------------------------------------ */
+body .app-container {
+  .bpm-btn {
+    background-color: var(--control-bg);
+    border-color: var(--border-color);
+    color: var(--text-color);
+  }
+
+  .slider {
+    background: var(--input-bg);
+  }
+
+  .pattern-option,
+  .string {
+    border-color: var(--border-color);
+    background-color: var(--card-background);
+    color: var(--text-color);
+
+    &:hover:not(.active) {
+      background-color: var(--surface-hover);
+      color: var(--text-color);
+    }
+  }
+
+  .tuning-indicator {
+    background: var(--surface-muted);
+  }
+
+  .pitch-labels span {
+    color: var(--text-muted-strong);
+  }
+
+  .footer {
+    color: var(--text-muted);
   }
 }

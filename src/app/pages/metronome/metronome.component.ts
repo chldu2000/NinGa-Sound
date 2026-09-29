@@ -12,9 +12,9 @@ import { FooterComponent } from '../../components/footer/footer.component';
     <div class="page-container">
       <h2>{{ 'metronome' | translate }}</h2>
       <div class="content">
-        <p>{{ isEnglish ? 'Use this metronome to help you practice guitar and maintain a steady rhythm.' : '使用这个节拍器来帮助您练习吉他，保持稳定的节奏。' }}</p>
+        <p>{{ 'metronome_intro' | translate }}</p>
         <div class="card">
-          <h3>{{ isEnglish ? 'Settings' : '设置' }}</h3>
+          <h3>{{ 'settings' | translate }}</h3>
           <div class="control-group">
             <div class="tempo-control">
               <div class="bpm-controls">
@@ -49,7 +49,7 @@ import { FooterComponent } from '../../components/footer/footer.component';
             </div>
           </div>
           <div class="pattern-select">
-            <h4>{{ isEnglish ? 'Rhythm Pattern' : '节奏型' }}</h4>
+            <h4>{{ 'rhythm_pattern' | translate }}</h4>
             <div class="pattern-options">
               <div 
                 class="pattern-option" 
@@ -215,10 +215,6 @@ export class MetronomeComponent implements OnDestroy {
   private nextNoteTime = 0;
   private nextBeatIndex = 0;
   private visualTimers: number[] = [];
-
-  get isEnglish() {
-    return localStorage.getItem('language') === 'en';
-  }
 
   // Beats per bar for the current pattern; always a positive integer.
   private get beatsPerBar(): number {

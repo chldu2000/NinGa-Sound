@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '../../pipes/translate.pipe';
+import type { TranslationKey } from '../../services/translate.service';
 import { FooterComponent } from '../../components/footer/footer.component';
 
 @Component({
@@ -12,7 +13,7 @@ import { FooterComponent } from '../../components/footer/footer.component';
     <div class="page-container">
       <h2>{{ 'tuner' | translate }}</h2>
       <div class="content">
-        <p>{{ isEnglish ? 'Use this tuner to ensure your guitar is tuned accurately.' : '使用这个调音器来确保您的吉他调音准确。' }}</p>
+        <p>{{ 'tuner_intro' | translate }}</p>
         <div class="card">
           <h3>{{ 'standard_tuning' | translate }}</h3>
           <div class="tuner-display">
@@ -38,7 +39,7 @@ import { FooterComponent } from '../../components/footer/footer.component';
               (click)="selectString(string.note)"
               [attr.data-note]="string.note"
             >
-              {{ isEnglish ? string.labelEn : string.labelZh }}
+              {{ string.labelKey | translate }}
             </div>
           </div>
           <div class="control-button-container">
@@ -211,17 +212,14 @@ export class TunerComponent implements OnInit, OnDestroy {
   tuningPosition = 50;
   currentString = '';
   pitchLabels: string[] = [];
-  guitarStrings = [
-    { note: 'E2', freq: 82.41, labelEn: '6th (E2)', labelZh: '6弦 (E2)' },
-    { note: 'A2', freq: 110.00, labelEn: '5th (A2)', labelZh: '5弦 (A2)' },
-    { note: 'D3', freq: 146.83, labelEn: '4th (D3)', labelZh: '4弦 (D3)' },
-    { note: 'G3', freq: 196.00, labelEn: '3rd (G3)', labelZh: '3弦 (G3)' },
-    { note: 'B3', freq: 246.94, labelEn: '2nd (B3)', labelZh: '2弦 (B3)' },
-    { note: 'E4', freq: 329.63, labelEn: '1st (E4)', labelZh: '1弦 (E4)' }
+  guitarStrings: { note: string; freq: number; labelKey: TranslationKey }[] = [
+    { note: 'E2', freq: 82.41, labelKey: 'string_6th' },
+    { note: 'A2', freq: 110.00, labelKey: 'string_5th' },
+    { note: 'D3', freq: 146.83, labelKey: 'string_4th' },
+    { note: 'G3', freq: 196.00, labelKey: 'string_3rd' },
+    { note: 'B3', freq: 246.94, labelKey: 'string_2nd' },
+    { note: 'E4', freq: 329.63, labelKey: 'string_1st' }
   ];
-  get isEnglish() {
-    return localStorage.getItem('language') === 'en';
-  }
   /**
    * 大字显示：正在收音且音量正常时显示“检测到的音名”，否则显示“目标弦”。
    * 显示值永远与当前检测结果一致，不会出现“检测到别的音、却显示 E2”那种矛盾。

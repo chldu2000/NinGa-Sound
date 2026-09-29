@@ -455,6 +455,13 @@ describe('TunerComponent', () => {
       expect(component.tuningPosition).toBe(0);
     });
 
+    /**
+     * ±400¢ is deliberately not used here. A fourth is 500¢, so for the G3/B3 pair +400¢ lands
+     * exactly on the neighbouring standard string (G3 + 400¢ == B3) and the tuner reports a wrong
+     * string instead of a pointer position; that collision has its own case below. ±200¢ stays
+     * unambiguously inside every string's own region (the neighbour is 500¢ away), so the linear
+     * mapping is asserted there.
+     */
     it('should keep the same mapping for all six strings', () => {
       for (const string of component.guitarStrings) {
         component.selectString(string.note);
@@ -462,12 +469,39 @@ describe('TunerComponent', () => {
         feed(0, string.freq, 0);
         expect(component.tuningPosition).withContext(`${string.note} at 0 cents`).toBeCloseTo(50, 6);
 
-        feed(400, string.freq, 400);
-        expect(component.tuningPosition).withContext(`${string.note} at +400 cents`).toBeCloseTo(100, 6);
+        feed(200, string.freq, 200);
+        expect(component.tuningPosition).withContext(`${string.note} at +200 cents`).toBeCloseTo(75, 6);
 
-        feed(-400, string.freq, -400);
-        expect(component.tuningPosition).withContext(`${string.note} at -400 cents`).toBeCloseTo(0, 6);
+        feed(-200, string.freq, -200);
+        expect(component.tuningPosition).withContext(`${string.note} at -200 cents`).toBeCloseTo(25, 6);
       }
+    });
+
+    it('should report a wrong string instead of pegging the pointer when the pitch is another string', () => {
+      // G3 + 400 cents is exactly B3: both are standard strings a major third apart, so the pitch
+      // genuinely belongs to B3 and the tuner has to say so rather than slamming the pointer right.
+      component.selectString('G3');
+      feed(400, 196.0, 400);
+      expect(component.detectedString).toBe('B3');
+      expect(component.isOtherStringDetected).toBeTrue();
+      expect(component.tuningPosition).toBe(50);
+
+      // The mirror case: a major third below B3 is exactly G3.
+      component.selectString('B3');
+      feed(-400, 246.94, -400);
+      expect(component.detectedString).toBe('G3');
+      expect(component.isOtherStringDetected).toBeTrue();
+      expect(component.tuningPosition).toBe(50);
+    });
+
+    it('should keep a badly detuned selected string on the pointer', () => {
+      // 300 cents sharp is still the low E string, not A2: A2 is merely the nearest string
+      // (200 cents away), which is why attribution also requires the +/-50 cent tolerance.
+      component.selectString('E2');
+      feed(300, 82.41, 300);
+      expect(component.detectedString).toBe('');
+      expect(component.isOtherStringDetected).toBeFalse();
+      expect(component.tuningPosition).toBeCloseTo(87.5, 6);
     });
 
     it('should ignore frequencies outside the plausible range', () => {
@@ -495,7 +529,10 @@ describe('TunerComponent', () => {
     });
 
     it('should stop the microphone, close the context and recentre the pointer', async () => {
-      await listenTo(sine(110));
+      // A slightly sharp low E: the selected string is E2, so this is a real deviation rather than
+      // another string. (Playing A2 while E2 is selected no longer moves the pointer at all --
+      // that is the wrong-string case, covered separately.)
+      await listenTo(sine(82.41 * Math.pow(2, 30 / 1200)));
       expect(component.tuningPosition).not.toBe(50);
 
       internals(component).stopTuner();
@@ -537,6 +574,215 @@ describe('TunerComponent', () => {
 
       expect(component.isListening).toBeFalse();
       expect(consoleError).toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * The tuner used to fail silently: no microphone error was shown, no hint when the input was
+   * too quiet, no confirmation when the string was in tune, and no explanation when the pitch
+   * belonged to a different string. These cases pin the replacement behaviour down.
+   */
+  describe('status feedback (previously silent failures)', () => {
+    function statusElement(): HTMLElement {
+      return fixture.nativeElement.querySelector('[data-testid="tuner-status"]') as HTMLElement;
+    }
+
+    /** The rendered status text, with the non-breaking separator normalised to a plain space. */
+    function statusText(): string {
+      return (statusElement().textContent ?? '').replace(/\u00a0/g, ' ').trim();
+    }
+
+    it('should tell the user to start while the tuner is idle', () => {
+      fixture.detectChanges();
+      expect(component.statusKey).toBe('tuner_idle');
+      expect(statusText()).toContain('开始调音');
+    });
+
+    it('should ask for a louder signal while the input is too quiet', async () => {
+      await listenTo(SILENCE);
+      fixture.detectChanges();
+
+      expect(component.isLowVolume).toBeTrue();
+      expect(component.statusKey).toBe('tuner_too_quiet');
+      expect(statusText()).toContain('音量太低');
+    });
+
+    it('should confirm explicitly when the selected string is in tune', async () => {
+      await listenTo(sine(82.41));
+      fixture.detectChanges();
+
+      expect(component.isInTune).toBeTrue();
+      expect(component.statusKey).toBe('tuner_in_tune');
+      expect(statusText()).toContain('已调准');
+      const note = fixture.nativeElement.querySelector('.note') as HTMLElement;
+      expect(note.classList.contains('in-tune')).toBeTrue();
+      expect(statusElement().classList.contains('status-in-tune')).toBeTrue();
+    });
+
+    it('should say flat or sharp while the selected string is off pitch', async () => {
+      await listenTo(sine(82.41 * Math.pow(2, -30 / 1200)));
+      expect(component.isInTune).toBeFalse();
+      expect(component.statusKey).toBe('tuner_flat');
+
+      // Selecting the same string again clears the smoothing state, so the sign is unambiguous.
+      component.selectString('E2');
+      currentAnalyser().signal = sine(82.41 * Math.pow(2, 30 / 1200));
+      internals(component).updatePitch();
+
+      expect(component.statusKey).toBe('tuner_sharp');
+    });
+
+    it('should name the string being played instead of pegging the pointer', async () => {
+      await listenTo(sine(110));
+      fixture.detectChanges();
+
+      expect(component.currentString).toBe('E2');
+      expect(component.detectedString).toBe('A2');
+      expect(component.isOtherStringDetected).toBeTrue();
+      expect(component.isTargetStringDetected).toBeFalse();
+      expect(component.tuningPosition).toBe(50);
+
+      const pointer = fixture.nativeElement.querySelector('.indicator-pointer') as HTMLElement;
+      expect(pointer.classList.contains('active')).toBeFalse();
+
+      expect(component.statusKey).toBe('tuner_wrong_string');
+      expect(statusText()).toContain('A2');
+      expect(statusText()).toContain('不是当前选中的弦');
+    });
+
+    it('should mark which string is actually sounding without changing the target', async () => {
+      await listenTo(sine(110));
+      fixture.detectChanges();
+
+      const marked = fixture.nativeElement.querySelectorAll('.string.detected');
+      expect(marked.length).toBe(1);
+      expect((marked[0] as HTMLElement).getAttribute('data-note')).toBe('A2');
+
+      const active = fixture.nativeElement.querySelector('.string.active') as HTMLElement;
+      expect(active.getAttribute('data-note')).toBe('E2');
+      expect(component.currentString).toBe('E2');
+    });
+
+    it('should accept the sounding string once the user selects it', async () => {
+      await listenTo(sine(110));
+      component.selectString('A2');
+      internals(component).updatePitch();
+      fixture.detectChanges();
+
+      expect(component.isOtherStringDetected).toBeFalse();
+      expect(component.isTargetStringDetected).toBeTrue();
+      expect(component.isInTune).toBeTrue();
+
+      const pointer = fixture.nativeElement.querySelector('.indicator-pointer') as HTMLElement;
+      expect(pointer.classList.contains('active')).toBeTrue();
+    });
+
+    it('should drop the stale frequency window when another string is selected', async () => {
+      await listenTo(sine(110));
+      expect(internals(component).lastFrequencies.length).toBeGreaterThan(0);
+
+      component.selectString('D3');
+
+      // Without clearing the window, the first frames after a switch would average the previous
+      // string's samples in and briefly attribute the pitch to the old string.
+      expect(internals(component).lastFrequencies.length).toBe(0);
+      expect(component.detectedString).toBe('');
+      expect(component.tuningPosition).toBe(50);
+    });
+  });
+
+  describe('microphone failures are reported instead of swallowed', () => {
+    function rejectWith(name: string): void {
+      const error = new Error(name);
+      error.name = name;
+      getUserMedia.and.returnValue(Promise.reject(error));
+    }
+
+    function allowAgain(): void {
+      getUserMedia.and.callFake(() => {
+        const track = { stop: jasmine.createSpy('track.stop') };
+        microphoneTracks.push(track);
+        return Promise.resolve({ getTracks: () => [track] } as unknown as MediaStream);
+      });
+    }
+
+    it('should explain a denied permission in the UI', async () => {
+      const consoleError = spyOn(console, 'error');
+      rejectWith('NotAllowedError');
+
+      await component.toggleTuner();
+      fixture.detectChanges();
+
+      expect(component.isListening).toBeFalse();
+      expect(component.micError).toBe('denied');
+      expect(component.statusKey).toBe('mic_denied');
+
+      const status = fixture.nativeElement.querySelector('[data-testid="tuner-status"]') as HTMLElement;
+      expect(status.textContent).toContain('麦克风权限被拒绝');
+      expect(status.classList.contains('status-error')).toBeTrue();
+      // Diagnostics are still logged; the point is that the UI is no longer silent.
+      expect(consoleError).toHaveBeenCalled();
+    });
+
+    it('should tell a missing device apart from a busy one', async () => {
+      spyOn(console, 'error');
+
+      rejectWith('NotFoundError');
+      await component.toggleTuner();
+      expect(component.micError).toBe('no-device');
+      expect(component.micErrorKey).toBe('mic_no_device');
+
+      rejectWith('NotReadableError');
+      await component.toggleTuner();
+      expect(component.micError).toBe('busy');
+      expect(component.micErrorKey).toBe('mic_busy');
+    });
+
+    it('should fall back to a generic message for an unrecognised failure', async () => {
+      spyOn(console, 'error');
+      rejectWith('WeirdError');
+
+      await component.toggleTuner();
+
+      expect(component.micError).toBe('unknown');
+      expect(component.statusKey).toBe('mic_unknown');
+    });
+
+    it('should report an unusable environment when mediaDevices is missing', async () => {
+      const restore = replaceProperty(navigator, 'mediaDevices', undefined);
+      try {
+        await component.toggleTuner();
+        expect(component.micError).toBe('insecure');
+        expect(component.statusKey).toBe('mic_insecure');
+        expect(component.isListening).toBeFalse();
+      } finally {
+        restore();
+      }
+    });
+
+    it('should not leak an AudioContext when the microphone cannot be opened', async () => {
+      spyOn(console, 'error');
+      rejectWith('NotAllowedError');
+
+      await component.toggleTuner();
+
+      // The context was created before getUserMedia rejected; it must be closed again, otherwise
+      // every retry leaves one behind.
+      expect(currentContext().closeCalls).toBe(1);
+    });
+
+    it('should clear the error once a retry succeeds', async () => {
+      spyOn(console, 'error');
+      rejectWith('NotAllowedError');
+      await component.toggleTuner();
+      expect(component.micError).toBe('denied');
+
+      allowAgain();
+      await component.toggleTuner();
+
+      expect(component.micError).toBe('');
+      expect(component.isListening).toBeTrue();
+      expect(component.statusKey).not.toBe('mic_denied');
     });
   });
 });

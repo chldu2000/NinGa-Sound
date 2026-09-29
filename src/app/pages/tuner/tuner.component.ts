@@ -5,6 +5,12 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
 import type { TranslationKey } from '../../services/translate.service';
 import { FooterComponent } from '../../components/footer/footer.component';
 
+/**
+ * 麦克风采集失败的原因。把浏览器抛出的 DOMException 归一到这几个可翻译的状态，
+ * 这样用户看到的是“权限被拒绝 / 设备被占用”，而不是一片沉默。
+ */
+type MicError = '' | 'denied' | 'no-device' | 'busy' | 'insecure' | 'unknown';
+
 @Component({
   selector: 'app-tuner',
   standalone: true,
@@ -17,7 +23,7 @@ import { FooterComponent } from '../../components/footer/footer.component';
         <div class="card">
           <h3>{{ 'standard_tuning' | translate }}</h3>
           <div class="tuner-display">
-            <div class="note">{{ displayNote }}</div>
+            <div class="note" [class.in-tune]="isInTune">{{ displayNote }}</div>
             <div class="tuning-indicator">
               <div class="pitch-labels">
                 <span *ngFor="let label of pitchLabels; let i = index"
@@ -27,15 +33,26 @@ import { FooterComponent } from '../../components/footer/footer.component';
               </div>
               <div class="indicator-bar"></div>
               <div class="indicator-pointer" 
-                   [class.active]="isListening && !isLowVolume"
+                   [class.active]="isPointerActive"
                    [style.left]="tuningPosition + '%'"></div>
             </div>
+          </div>
+          <!-- 状态行：调音器以前在“没拾到音 / 弹错弦 / 麦克风失败”时完全沉默，
+               用户只能看到指针不动。这里始终给出唯一一条明确的状态。 -->
+          <div class="tuner-status"
+               role="status"
+               data-testid="tuner-status"
+               [class.status-error]="micError !== ''"
+               [class.status-in-tune]="isInTune"
+          >
+            <span class="detected-note" *ngIf="isOtherStringDetected">{{ detectedNote }}&nbsp;</span>{{ statusKey | translate }}
           </div>
           <div class="string-selector">
             <div 
               *ngFor="let string of guitarStrings" 
               class="string" 
               [class.active]="currentString === string.note"
+              [class.detected]="detectedString === string.note"
               (click)="selectString(string.note)"
               [attr.data-note]="string.note"
             >
@@ -69,6 +86,24 @@ import { FooterComponent } from '../../components/footer/footer.component';
       font-size: 48px;
       font-weight: bold;
       color: var(--guitar-sunset-dark);
+    }
+    .note.in-tune {
+      color: var(--status-in-tune);
+    }
+    /* 固定最小高度，避免状态文案在“--”与长句之间切换时引起布局跳动 */
+    .tuner-status {
+      min-height: 1.4em;
+      margin: 0 0 4px;
+      text-align: center;
+      font-size: 0.95em;
+      color: var(--text-muted-strong);
+    }
+    .tuner-status.status-in-tune {
+      color: var(--status-in-tune);
+      font-weight: 600;
+    }
+    .tuner-status.status-error {
+      color: var(--status-error);
     }
     .tuning-indicator {
       width: 100%;
@@ -161,6 +196,12 @@ import { FooterComponent } from '../../components/footer/footer.component';
       background-color: var(--surface-hover);
       color: var(--text-color);
     }
+    /* 正在弹的弦（不改变目标弦，只做标记）；必须写在 .active 之前，
+       两者特异度相同 (0,2,0)，靠后者胜出，这样选中的弦仍然显示为激活态。 */
+    .string.detected {
+      border-style: dashed;
+      border-color: var(--guitar-sunset-light);
+    }
     .string.active {
       background-color: var(--guitar-sunset-dark);
       color: var(--text-on-sunset);
@@ -197,6 +238,15 @@ export class TunerComponent implements OnInit, OnDestroy {
   private readonly correlationThreshold = 0.85;
   private readonly frequencyBufferSize = 8;
   private readonly centsSmoothingFactor = 0.7;
+  /** |音分| 落在该范围内即视为已调准。 */
+  private readonly inTuneCents = 5;
+  /**
+   * 判定“在弹另一根弦”的容差：检测音高必须落在某根**其他**标准弦的这个范围内。
+   * 只按“最近的弦”判定是不够的——选中的是 E2 却弹高了 300¢ 时，最近的弦会是 A2
+   * （差 200¢），但那其实是同一根弦走音，不是弹错弦。加上这个容差后，只有确实
+   * 落在别根弦附近才判为弹错弦，真实的音准偏差不会被掩盖。
+   */
+  private readonly otherStringCents = 50;
   private audioContext?: AudioContext;
   private analyser?: AnalyserNode;
   private mediaStream?: MediaStream;
@@ -214,6 +264,17 @@ export class TunerComponent implements OnInit, OnDestroy {
   private detectedFrequency = 0;
   isListening = false;
   isLowVolume = true;
+  /**
+   * 麦克风不可用的原因；'' 表示无错误。原来这里只往 console 写一行，
+   * 界面毫无反馈，用户点了按钮像是坏了。
+   */
+  micError: MicError = '';
+  /**
+   * 检测音高归属的标准弦音名（'' = 没有可信归属）。仅当检测音高落在某根弦的
+   * otherStringCents 范围内时才会被赋值，用来区分三种状态：正在弹目标弦、
+   * 正在弹别的弦、偏差大到无法归属。
+   */
+  detectedString = '';
   /** 目标弦（由 ngOnInit / selectString 更新），指针偏差相对它计算。 */
   currentNote = '-';
   tuningPosition = 50;
@@ -227,6 +288,10 @@ export class TunerComponent implements OnInit, OnDestroy {
     { note: 'B3', freq: 246.94, labelKey: 'string_2nd' },
     { note: 'E4', freq: 329.63, labelKey: 'string_1st' }
   ];
+  /** 检测音高对应的音名；没有有效检测时为空串。 */
+  get detectedNote(): string {
+    return this.detectedFrequency > 0 ? this.frequencyToNoteName(this.detectedFrequency) : '';
+  }
   /**
    * 大字显示：正在收音且音量正常时显示“检测到的音名”，否则显示“目标弦”。
    * 显示值永远与当前检测结果一致，不会出现“检测到别的音、却显示 E2”那种矛盾。
@@ -235,7 +300,50 @@ export class TunerComponent implements OnInit, OnDestroy {
     if (!this.isListening || this.isLowVolume || this.detectedFrequency <= 0) {
       return this.currentNote;
     }
-    return this.frequencyToNoteName(this.detectedFrequency);
+    return this.detectedNote || this.currentNote;
+  }
+  /** 正在弹的就是选中的那根弦。 */
+  get isTargetStringDetected(): boolean {
+    return this.detectedString !== '' && this.detectedString === this.currentString;
+  }
+  /** 正在弹的是另一根标准弦——是弹错弦，而不是走音。 */
+  get isOtherStringDetected(): boolean {
+    return this.detectedString !== '' && this.detectedString !== this.currentString;
+  }
+  /** 已调准：必须在弹目标弦、音量正常、且偏差在 inTuneCents 以内。 */
+  get isInTune(): boolean {
+    return this.isListening && !this.isLowVolume
+      && this.isTargetStringDetected
+      && Math.abs(this.lastCents) <= this.inTuneCents;
+  }
+  /**
+   * 指针仅在读数可信时点亮：收音中、音量正常、有检测结果、且弹的是目标弦。
+   * 弹错弦时指针置中并变暗，不再像以前那样钉死在端点误导用户。
+   */
+  get isPointerActive(): boolean {
+    return this.isListening && !this.isLowVolume
+      && this.detectedFrequency > 0
+      && !this.isOtherStringDetected;
+  }
+  /** 麦克风错误对应的文案键。 */
+  get micErrorKey(): TranslationKey {
+    switch (this.micError) {
+      case 'denied': return 'mic_denied';
+      case 'no-device': return 'mic_no_device';
+      case 'busy': return 'mic_busy';
+      case 'insecure': return 'mic_insecure';
+      default: return 'mic_unknown';
+    }
+  }
+  /** 状态行唯一一条文案；任何时刻都必然有值，界面因此不会沉默。 */
+  get statusKey(): TranslationKey {
+    if (this.micError !== '') return this.micErrorKey;
+    if (!this.isListening) return 'tuner_idle';
+    if (this.isLowVolume) return 'tuner_too_quiet';
+    if (this.detectedFrequency <= 0) return 'tuner_detecting';
+    if (this.isOtherStringDetected) return 'tuner_wrong_string';
+    if (this.isInTune) return 'tuner_in_tune';
+    return this.lastCents < 0 ? 'tuner_flat' : 'tuner_sharp';
   }
   ngOnInit() {
     this.currentString = 'E2';
@@ -259,6 +367,14 @@ export class TunerComponent implements OnInit, OnDestroy {
     }
   }
   private async startTuner() {
+    this.micError = '';
+    // 先确认环境具备采集能力：非安全上下文（HTTP）或过旧的浏览器里 mediaDevices
+    // 可能根本不存在。原来这种情形是一个 TypeError 静默消失在 console 里。
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+      this.micError = 'insecure';
+      this.isListening = false;
+      return;
+    }
     try {
       this.audioContext = new AudioContext();
       this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -278,10 +394,40 @@ export class TunerComponent implements OnInit, OnDestroy {
       this.correlation = new Float32Array(
         Math.floor(this.audioContext.sampleRate / this.decimationFactor / this.minSearchFrequency) + 3
       );
+      this.detectedString = '';
       this.isListening = true;
       this.updatePitch();
     } catch (error) {
+      // 以前这里只有 console.error：用户点了按钮，界面没有任何反馈。
+      this.micError = this.resolveMicError(error);
       console.error('Error accessing microphone:', error);
+      // 失败时不要留下半个会话：关掉刚创建的 AudioContext，否则每次重试都泄漏一个。
+      if (this.audioContext) {
+        void this.audioContext.close().catch(() => undefined);
+        this.audioContext = undefined;
+      }
+      this.analyser = undefined;
+      this.mediaStream = undefined;
+      this.isListening = false;
+    }
+  }
+  /** 把浏览器的采集异常归一成可显示的原因。 */
+  private resolveMicError(error: unknown): MicError {
+    const name = (error as { name?: unknown } | null | undefined)?.name;
+    switch (name) {
+      case 'NotAllowedError':
+      case 'PermissionDeniedError':
+      case 'SecurityError':
+        return 'denied';
+      case 'NotFoundError':
+      case 'DevicesNotFoundError':
+        return 'no-device';
+      case 'NotReadableError':
+      case 'TrackStartError':
+      case 'AbortError':
+        return 'busy';
+      default:
+        return 'unknown';
     }
   }
   private stopTuner() {
@@ -289,20 +435,31 @@ export class TunerComponent implements OnInit, OnDestroy {
       this.mediaStream.getTracks().forEach(track => track.stop());
     }
     if (this.audioContext) {
-      this.audioContext.close();
+      // close() 返回 Promise：不接住会在控制台留下 unhandled rejection。
+      void this.audioContext.close().catch(() => undefined);
+      this.audioContext = undefined;
     }
+    this.analyser = undefined;
+    this.mediaStream = undefined;
     this.isListening = false;
     this.tuningPosition = 50; // 重置指针位置到中间
     // 清空本次会话的平滑状态，避免下次启动沿用上一次的历史值（陈旧状态）
     this.lastFrequencies = [];
     this.lastCents = 0;
     this.detectedFrequency = 0;
+    this.detectedString = '';
     this.isLowVolume = true;
   }
   selectString(note: string) {
     this.currentString = note;
     this.currentNote = note;
     this.detectedFrequency = 0; // 切换目标弦后先显示目标音名，直到下一帧检测结果到达
+    // 频率平均窗与弦归属也必须清空：否则切换后的前几帧会把上一根弦的样本一起平均，
+    // 归属弦会短暂地显示成旧的弦，指针也会先跳到旧读数再回来。
+    this.lastFrequencies = [];
+    this.lastCents = 0;
+    this.detectedString = '';
+    this.tuningPosition = 50;
   }
   private updatePitch() {
     if (!this.isListening || !this.analyser || !this.audioContext) return;
@@ -490,16 +647,46 @@ export class TunerComponent implements OnInit, OnDestroy {
       frequencySum += this.lastFrequencies[i];
     }
     const avgFrequency = frequencySum / this.lastFrequencies.length;
-    // 显示用的“检测音”在这里更新：即使 ratio 越界（指针不动），显示仍是实际听到的音
+    // 显示用的“检测音”在这里更新：即使下面的归属判定失败、指针不动，显示仍是实际听到的音
     this.detectedFrequency = avgFrequency;
 
-    const ratio = avgFrequency / targetString.freq;
-    if (ratio < 0.5 || ratio > 2) return;
+    // 弦归属：检测音高离哪根标准弦最近。归给**选中的**弦是无条件的（它就是参照系）；
+    // 归给**别的**弦则要求确实落在那根弦附近（otherStringCents 内），
+    // 否则“选 E2 却弹高 300¢”会被误判成“在弹 A2”，把真实的走音掩盖掉。
+    const nearest = this.nearestStandardString(avgFrequency);
+    const isOtherString = nearest.note !== this.currentString && nearest.cents <= this.otherStringCents;
+    this.detectedString = isOtherString || nearest.note === this.currentString ? nearest.note : '';
+
+    if (isOtherString) {
+      // 弹的是别的弦：指针置中并变暗，由状态行说明是哪根弦。
+      // 以前这里按 ratio 算出约 +500¢ 并把指针钉死在端点，看起来像“极度偏高”。
+      this.lastCents = 0;
+      this.tuningPosition = 50;
+      return;
+    }
 
     const cents = this.calculateCents(avgFrequency, targetString.freq);
     this.lastCents = this.lastCents * this.centsSmoothingFactor + cents * (1 - this.centsSmoothingFactor);
     // 将±400音分映射到0-100的位置范围
     this.tuningPosition = Math.max(0, Math.min(100, 50 + (this.lastCents / 400) * 50));
+  }
+  /**
+   * 检测频率最接近的标准弦，以及两者的音分距离。
+   *
+   * 必须用音分距离而不是频率比值来判断：吉他相邻弦相差四度(≈500¢)，用 ratio 判断时
+   * “弹 A2 而选中 E2”的比值是 1.33，落进原来的 [0.5, 2] 门限里，于是被当成“E2 高了 500¢”。
+   */
+  private nearestStandardString(frequency: number): { note: string; cents: number } {
+    let bestNote = this.guitarStrings[0].note;
+    let bestCents = Number.POSITIVE_INFINITY;
+    for (const string of this.guitarStrings) {
+      const distance = Math.abs(this.calculateCents(frequency, string.freq));
+      if (distance < bestCents) {
+        bestCents = distance;
+        bestNote = string.note;
+      }
+    }
+    return { note: bestNote, cents: bestCents };
   }
   /** 频率 → 音名（如 82.41 → "E2"）；超出合理范围时回退到目标弦。 */
   private frequencyToNoteName(frequency: number): string {

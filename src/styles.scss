@@ -32,6 +32,9 @@
   --surface-hover: #f0f0f0;         /* 可选项悬停底色 */
   --text-muted: #666;               /* 页脚等次要文字 */
   --text-muted-strong: #444;        /* 刻度标签等次要文字 */
+  /* 状态色：调音器的“已调准”反馈与麦克风错误提示 */
+  --status-in-tune: #2e7d32;        /* 亮色卡片上 ≈5.1:1 */
+  --status-error: #c62828;          /* 亮色卡片上 ≈5.9:1 */
   --heading-color: var(--guitar-wood);
   --subheading-color: var(--guitar-neck);
 }
@@ -49,6 +52,8 @@
   --surface-hover: #3d3d3d;
   --text-muted: #b0b0b0;
   --text-muted-strong: #d0d0d0;
+  --status-in-tune: #66bb6a;        /* 暗色卡片上 ≈5.0:1 */
+  --status-error: #ef5350;          /* 暗色卡片上 ≈5.0:1 */
   /* 保持原有暗色渲染：标题用正文色，而不是木色 / 指板色 */
   --heading-color: #f0f0f0;
   --subheading-color: #f0f0f0;

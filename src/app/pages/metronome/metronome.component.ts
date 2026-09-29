@@ -74,8 +74,11 @@ import { FooterComponent } from '../../components/footer/footer.component';
     </div>
   `,
   styles: [`
+    /* T9: min-height: 100vh 已删除。本组件规则的特异度 (0,2,0) 高于全局
+       .page-container (0,1,0)，把容器撑成整屏高；而 .main-content 的内容盒因
+       20px 上下内边距少 40px（移动端侧边栏占位后少 144px），于是页面恒定多出一段
+       滚不到内容的空滚动。铺满滚动容器由全局的 height: 100% 负责。 */
     .page-container {
-      min-height: 100vh;
       display: flex;
       flex-direction: column;
     }
@@ -120,9 +123,10 @@ import { FooterComponent } from '../../components/footer/footer.component';
     .bpm-btn {
       width: 30px;
       height: 30px;
-      border: 1px solid #ddd;
+      border: 1px solid var(--border-color);
       border-radius: 4px;
-      background-color: white;
+      background-color: var(--control-bg);
+      color: var(--text-color);
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -133,7 +137,7 @@ import { FooterComponent } from '../../components/footer/footer.component';
 
     .bpm-btn:hover {
       background-color: var(--guitar-sunset-dark);
-      color: white;
+      color: var(--text-on-sunset);
       border-color: var(--guitar-sunset-dark);
     }
     .slider {
@@ -142,7 +146,7 @@ import { FooterComponent } from '../../components/footer/footer.component';
       -webkit-appearance: none;
       appearance: none;
       height: 8px;
-      background: #ddd;
+      background: var(--input-bg);
       border-radius: 4px;
       outline: none;
     }
@@ -162,17 +166,21 @@ import { FooterComponent } from '../../components/footer/footer.component';
     }
     .pattern-option {
       padding: 8px 16px;
-      border: 1px solid #ddd;
+      border: 1px solid var(--border-color);
       border-radius: 4px;
+      background-color: var(--card-background);
+      color: var(--text-color);
       cursor: pointer;
       transition: all 0.3s ease;
     }
+    /* 无需 :hover:not(.active)：.pattern-option.active (0,3,0) 天然高于 :hover (0,2,0) */
     .pattern-option:hover {
-      background-color: #f0f0f0;
+      background-color: var(--surface-hover);
+      color: var(--text-color);
     }
     .pattern-option.active {
       background-color: var(--guitar-sunset-dark);
-      color: white;
+      color: var(--text-on-sunset);
       border-color: var(--guitar-sunset-dark);
     }
     .beat-indicators {
@@ -181,6 +189,15 @@ import { FooterComponent } from '../../components/footer/footer.component';
       gap: 8px;
       margin-top: 15px;
     }
+    /* T9 决策：保留 #ddd 字面量，不引入 --beat-indicator-off-bg。
+       实测（Chrome 154 headless，getComputedStyle + WCAG 对比度换算，两主题同为该色）：
+         #ddd vs 激活橙 #e25822 = 2.74:1（唯一可用的激活/未激活区分度）
+         #ddd vs 亮色卡片 #ffffff = 1.36:1；vs 暗色卡片 #2d2d2d = 10.14:1
+       让它随主题变化并不会更好：暗色卡片下未激活点自身要达到 3:1 需相对亮度
+       L >= 0.179，而 L 落在 0.179~0.233 时与激活橙只剩 1.00~1.23:1，等于失去区分度；
+       L <= 0.053 虽能保住 2.74:1，但自身对卡片只有 1.35:1（几乎不可见）。
+       亮色下要让未激活点对白卡达到 3:1 需 #8a8a8a 一类中灰，与激活橙只剩 1.08:1。
+       即该色值的最优点（L >= 0.724，约等于 #ddd）与主题无关，故保留原值并记录。 */
     .beat-indicator {
       width: 12px;
       height: 12px;

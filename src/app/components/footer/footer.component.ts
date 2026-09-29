@@ -11,12 +11,19 @@ import { CommonModule } from '@angular/common';
     </footer>
   `,
   styles: [`
+    /* T9: 需要拉伸的是宿主元素 app-footer —— 它才是 .page-container 的 flex 项。
+       原来写在 .footer 上的 margin-top: auto 处于普通块级上下文，auto 外边距
+       解析为 0（实测 computed margin-top = 0px），短页时页脚悬在内容下方。
+       把 auto 外边距放到宿主上即可吸收剩余空间，使页脚贴到容器底部。 */
+    :host {
+      display: block;
+      margin-top: auto;
+    }
     .footer {
       text-align: center;
       padding: 10px;
-      margin-top: auto;
       font-size: 0.9em;
-      color: #666;
+      color: var(--text-muted);
     }
     .footer a {
       color: var(--guitar-sunset-dark);

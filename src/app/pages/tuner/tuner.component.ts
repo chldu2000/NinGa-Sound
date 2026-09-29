@@ -51,8 +51,11 @@ import { FooterComponent } from '../../components/footer/footer.component';
     </div>
   `,
   styles: [`
+    /* T9: min-height: 100vh 已删除。本组件规则的特异度 (0,2,0) 高于全局
+       .page-container (0,1,0)，把容器撑成整屏高；而 .main-content 的内容盒因
+       20px 上下内边距少 40px（移动端侧边栏占位后少 144px），于是页面恒定多出一段
+       滚不到内容的空滚动。铺满滚动容器由全局的 height: 100% 负责。 */
     .page-container {
-      min-height: 100vh;
       display: flex;
       flex-direction: column;
     }
@@ -72,7 +75,7 @@ import { FooterComponent } from '../../components/footer/footer.component';
       height: 60px;
       position: relative;
       margin: 20px auto;
-      background: #f5f5f5;
+      background: var(--surface-muted);
       border-radius: 4px;
       box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
       overflow: hidden;
@@ -108,7 +111,7 @@ import { FooterComponent } from '../../components/footer/footer.component';
       transform: translateX(-50%);
       font-size: 12px;
       font-weight: 500;
-      color: #444;
+      color: var(--text-muted-strong);
       bottom: 2px;
     }
     .indicator-pointer {
@@ -145,18 +148,22 @@ import { FooterComponent } from '../../components/footer/footer.component';
     }
     .string {
       padding: 8px 12px;
-      border: 1px solid #ddd;
+      border: 1px solid var(--border-color);
       border-radius: 4px;
+      background-color: var(--card-background);
+      color: var(--text-color);
       cursor: pointer;
       text-align: center;
       transition: all 0.3s ease;
     }
+    /* 无需 :hover:not(.active)：.string.active (0,3,0) 天然高于 :hover (0,2,0) */
     .string:hover {
-      background-color: #f0f0f0;
+      background-color: var(--surface-hover);
+      color: var(--text-color);
     }
     .string.active {
       background-color: var(--guitar-sunset-dark);
-      color: white;
+      color: var(--text-on-sunset);
       border-color: var(--guitar-sunset-dark);
     }
     .control-button-container {

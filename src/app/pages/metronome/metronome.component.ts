@@ -195,42 +195,61 @@ import { FooterComponent } from '../../components/footer/footer.component';
   `]
 })
 export class MetronomeComponent implements OnDestroy {
+  // ---- timing / BPM constants ----
+  // Lookahead scheduler: poll every 25ms, hand the next 100ms of beats to the audio clock.
+  private static readonly MIN_BPM = 30;
+  private static readonly MAX_BPM = 300;
+  private static readonly DEFAULT_BPM = 120;
+  private static readonly LOOKAHEAD_MS = 25;
+  private static readonly SCHEDULE_AHEAD_S = 0.1;
+  private static readonly CLICK_DURATION_S = 0.05;
+
   bpm = 120;
   isPlaying = false;
-  private audioContext?: AudioContext;
-  private intervalId?: number;
   currentPattern = '4/4';
   currentBeat = -1;
   beatIndicators: number[] = [1, 2, 3, 4];
+
+  private audioContext?: AudioContext;
+  private schedulerId?: number;
+  private nextNoteTime = 0;
+  private nextBeatIndex = 0;
+  private visualTimers: number[] = [];
+
   get isEnglish() {
     return localStorage.getItem('language') === 'en';
   }
 
+  // Beats per bar for the current pattern; always a positive integer.
+  private get beatsPerBar(): number {
+    const beats = Number.parseInt(this.currentPattern.split('/')[0], 10);
+    return Number.isFinite(beats) && beats > 0 ? beats : 4;
+  }
+
   updateBPM(event: Event) {
     const input = event.target as HTMLInputElement;
-    this.bpm = parseInt(input.value);
-    if (this.isPlaying) {
-      this.stopMetronome();
-      this.startMetronome();
+    // Single entry point: NaN (e.g. empty value) keeps the previous BPM.
+    this.applyBpm(Number.parseInt(input.value, 10));
+    // Mirror the clamp back into the control so the slider can never show an out-of-range value.
+    if (input.value !== String(this.bpm)) {
+      input.value = String(this.bpm);
     }
   }
 
-  onBpmChange(value: number) {
-    if (value < 30) this.bpm = 30;
-    else if (value > 300) this.bpm = 300;
-    
-    if (this.isPlaying) {
-      this.stopMetronome();
-      this.startMetronome();
-    }
+  // Single entry point for every BPM write: clamp to [30, 300] and reject non-finite values.
+  private applyBpm(value: number): void {
+    const fallback = Number.isFinite(this.bpm) ? this.bpm : MetronomeComponent.DEFAULT_BPM;
+    this.bpm = Number.isFinite(value)
+      ? Math.min(MetronomeComponent.MAX_BPM, Math.max(MetronomeComponent.MIN_BPM, value))
+      : fallback;
   }
 
   selectPattern(pattern: string) {
     this.currentPattern = pattern;
     this.currentBeat = 0;
-    const beatsPerBar = parseInt(pattern.split('/')[0]);
-    this.beatIndicators = Array(beatsPerBar).fill(0).map((_, i) => i + 1);
+    this.beatIndicators = Array.from({ length: this.beatsPerBar }, (_, i) => i + 1);
     if (this.isPlaying) {
+      // Changing the time signature resets the bar phase on purpose.
       this.stopMetronome();
       this.startMetronome();
     }
@@ -244,67 +263,118 @@ export class MetronomeComponent implements OnDestroy {
     this.isPlaying = !this.isPlaying;
   }
   private startMetronome() {
-    if (!this.audioContext) {
-      this.audioContext = new AudioContext();
+    const ctx = this.audioContext ?? (this.audioContext = new AudioContext());
+    void ctx.resume().catch(() => undefined);
+
+    if (this.schedulerId !== undefined) {
+      window.clearInterval(this.schedulerId);
+      this.schedulerId = undefined;
     }
-    
-    const interval = (60 / this.bpm) * 1000;
-    this.intervalId = window.setInterval(() => {
-      this.updateBeat();
-      this.playClick();
-    }, interval);
+    this.cancelScheduledVisuals();
+
+    // Restart the bar at beat 0; the first beat is due at "now", so it sounds immediately.
+    this.nextBeatIndex = 0;
+    this.currentBeat = -1;
+    this.nextNoteTime = ctx.currentTime;
+    this.schedulerId = window.setInterval(
+      () => this.scheduler(),
+      MetronomeComponent.LOOKAHEAD_MS
+    );
+    this.scheduler();
   }
-  private updateBeat() {
-    const beatsPerBar = parseInt(this.currentPattern.split('/')[0]);
-    this.currentBeat = (this.currentBeat + 1) % beatsPerBar;
+
+  // Lookahead scheduler. Every beat inside the next SCHEDULE_AHEAD_S seconds is queued on the
+  // audio clock; timer jitter only affects *when a beat is queued*, never *when it sounds*.
+  private scheduler(): void {
+    const ctx = this.audioContext;
+    if (!ctx) return;
+
+    if (this.nextNoteTime < ctx.currentTime) {
+      // The poll was delayed (e.g. a throttled tab). Re-align to the audio clock instead of
+      // firing a burst of late beats; times still come from the audio clock, so no drift builds up.
+      this.nextNoteTime = ctx.currentTime;
+    }
+
+    const secondsPerBeat = 60 / this.bpm;
+    while (this.nextNoteTime < ctx.currentTime + MetronomeComponent.SCHEDULE_AHEAD_S) {
+      const beatIndex = this.nextBeatIndex;
+      this.playClick(beatIndex, this.nextNoteTime);
+      this.scheduleBeatIndicator(beatIndex, this.nextNoteTime);
+      this.nextNoteTime += secondsPerBeat;
+      this.nextBeatIndex = (this.nextBeatIndex + 1) % this.beatsPerBar;
+    }
+  }
+
+  // Light the matching indicator roughly when the beat is audible.
+  private scheduleBeatIndicator(beatIndex: number, time: number): void {
+    const ctx = this.audioContext;
+    if (!ctx) return;
+    const delayMs = Math.max(0, (time - ctx.currentTime) * 1000);
+    const timerId = window.setTimeout(() => {
+      this.visualTimers = this.visualTimers.filter((id) => id !== timerId);
+      this.currentBeat = beatIndex;
+    }, delayMs);
+    this.visualTimers.push(timerId);
+  }
+
+  private cancelScheduledVisuals(): void {
+    for (const timerId of this.visualTimers) {
+      window.clearTimeout(timerId);
+    }
+    this.visualTimers = [];
   }
 
   private stopMetronome() {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = undefined;
-      this.currentBeat = -1; // 停止时重置为-1，这样就不会高亮任何指示灯
+    if (this.schedulerId !== undefined) {
+      window.clearInterval(this.schedulerId);
+      this.schedulerId = undefined;
     }
+    this.cancelScheduledVisuals();
+    this.currentBeat = -1; // Stop: no indicator highlighted.
+    this.nextBeatIndex = 0;
   }
-  private playClick() {
-    if (!this.audioContext) return;
-    
-    const oscillator = this.audioContext.createOscillator();
-    const gainNode = this.audioContext.createGain();
-    
+
+  // Queue one click at an absolute audio-clock time; nodes release themselves on 'ended'.
+  private playClick(beatIndex: number, time: number): void {
+    const ctx = this.audioContext;
+    if (!ctx) return;
+
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+
     oscillator.connect(gainNode);
-    gainNode.connect(this.audioContext.destination);
-    
-    // 第一拍使用更高的频率和音量
-    if (this.currentBeat === 0) {
-      oscillator.frequency.value = 1500; // 重音使用更高的频率
-      gainNode.gain.value = 0.7; // 重音使用更大的音量
-    } else {
-      oscillator.frequency.value = 1000;
-      gainNode.gain.value = 0.5;
-    }
-    
-    oscillator.start();
-    
+    gainNode.connect(ctx.destination);
+
+    // Beat 1 is the accent: higher pitch and louder.
+    const isAccent = beatIndex === 0;
+    oscillator.frequency.value = isAccent ? 1500 : 1000;
+    const peakGain = isAccent ? 0.7 : 0.5;
+
+    gainNode.gain.setValueAtTime(peakGain, time);
     gainNode.gain.exponentialRampToValueAtTime(
       0.01,
-      this.audioContext.currentTime + 0.05
+      time + MetronomeComponent.CLICK_DURATION_S
     );
-    
-    oscillator.stop(this.audioContext.currentTime + 0.05);
+    oscillator.start(time);
+    oscillator.stop(time + MetronomeComponent.CLICK_DURATION_S);
+
+    oscillator.onended = () => {
+      oscillator.disconnect();
+      gainNode.disconnect();
+    };
   }
   adjustBPM(change: number) {
-    const newBpm = this.bpm + change;
-    if (newBpm >= 30 && newBpm <= 300) {
-      this.bpm = newBpm;
-      if (this.isPlaying) {
-        this.stopMetronome();
-        this.startMetronome();
-      }
-    }
+    // Same single entry point as the slider; no restart, so the bar phase is preserved.
+    this.applyBpm(this.bpm + change);
   }
+
   ngOnDestroy() {
     this.stopMetronome();
-    this.audioContext?.close();
+    const ctx = this.audioContext;
+    this.audioContext = undefined;
+    if (ctx) {
+      // close() is async and may reject (e.g. already closed); ignore the rejection on purpose.
+      void ctx.close().catch(() => undefined);
+    }
   }
 }
